@@ -1,0 +1,30 @@
+menu "SmartPot Configuration"
+
+    config SMARTPOT_USING_I2C
+        bool "Using I2C connected devices"
+        default true
+        help
+            Using I2C connected devices such as OLED, RTC, EEPROM etc.
+
+
+    choice SMARTPOT_OLED_CONNECTION
+        bool "OLED connected to"
+        default SMARTPOT_OLED_CONNECTION_I2C if SMARTPOT_USING_I2C
+        help
+            OLED connected
+
+        config SMARTPOT_OLED_CONNECTION_I2C
+            bool "I2C"
+            depends on !IDF_TARGET_ESP32S2
+
+        config SMARTPOT_OLED_CONNECTION_SPI
+            bool "SPI"
+    endchoice
+
+    config SMARTPOT_OLED_CONNECTION
+        int
+        default 1 if SMARTPOT_USING_I2C
+        default 2
+
+
+endmenu
