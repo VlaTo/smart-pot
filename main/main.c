@@ -37,7 +37,15 @@ void app_main(void)
     //ESP_ERROR_CHECK(ssd1306_device_init(&ssd1306, DEFAULT_SSD1306_ADDR));
     ESP_ERROR_CHECK(ds3231_device_init(&ds3231, DEFAULT_DS3231_ADDR));
 
-    struct tm ti;
+    struct tm ti /*= {
+        .tm_sec = 23,
+        .tm_min = 32,
+        .tm_hour = 12,
+        .tm_wday = 3,
+        .tm_mday = 30,
+        .tm_mon = 11,
+        .tm_year = 2022
+    }*/;
     float temp;
     char str[64];
 

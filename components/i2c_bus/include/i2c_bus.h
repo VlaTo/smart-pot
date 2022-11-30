@@ -24,6 +24,7 @@ typedef uint8_t i2c_device_addr_t;
 
 typedef struct {
     i2c_device_addr_t addr;
+    SemaphoreHandle_t lock;
 } i2c_device_t;
 
 /**
@@ -46,6 +47,10 @@ typedef struct {
  */
 esp_err_t i2c_device_init(i2c_device_t* dev, const i2c_device_addr_t dev_addr);
 
+esp_err_t i2c_device_take(const i2c_device_t* dev);
+
+esp_err_t i2c_device_give(const i2c_device_t* dev);
+
 esp_err_t i2c_device_write(const i2c_device_t* dev, const void* data, const size_t data_size);
 
 esp_err_t i2c_device_write_reg(const i2c_device_t* dev, uint8_t reg, const void* data, const size_t data_size);
@@ -53,5 +58,15 @@ esp_err_t i2c_device_write_reg(const i2c_device_t* dev, uint8_t reg, const void*
 esp_err_t i2c_device_read(const i2c_device_t* dev, void* data, const size_t data_size);
 
 esp_err_t i2c_device_read_reg(const i2c_device_t* dev, uint8_t reg, void* data, const size_t data_size);
+
+#define I2C_DEVICE_TAKE(dev) do { \
+        esp_err_t __ = i2c_device_take(dev); \
+        if (ESP_OK != __) return __; \
+    } while (0)
+
+#define I2C_DEVICE_GIVE(dev) do { \
+        esp_err_t __ = i2c_device_give(dev); \
+        if (ESP_OK != __) return __; \
+    } while (0)
 
 #endif

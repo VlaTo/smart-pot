@@ -58,6 +58,27 @@ esp_err_t i2c_device_init(i2c_device_t* dev, const i2c_device_addr_t dev_addr)
     }
 
     dev->addr = dev_addr;
+    dev->lock = xSemaphoreCreateMutex();
+
+    return ESP_OK;
+}
+
+esp_err_t i2c_device_take(const i2c_device_t* dev)
+{
+    if (!xSemaphoreTake(dev->lock, pdMS_TO_TICKS(CONFIG_I2CDEV_TIMEOUT))) {
+        ESP_LOGE(TAG, "Could not take device mutex");
+        return ESP_ERR_TIMEOUT;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t i2c_device_give(const i2c_device_t* dev)
+{
+    if (!xSemaphoreGive(dev->lock)) {
+        ESP_LOGE(TAG, "Could not take device mutex");
+        return ESP_FAIL;
+    }
 
     return ESP_OK;
 }
