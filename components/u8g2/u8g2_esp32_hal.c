@@ -11,16 +11,24 @@
 #include "i2cdev.h"
 #include "u8g2_esp32_hal.h"
 
+#define I2C_FREQ_HZ 400000 //  I2C master clock frequency
+
 static const char *TAG = "u8g2_hal";
-//static const unsigned int I2C_TIMEOUT_MS = 1000;
 
 static spi_device_handle_t	handle_spi;      	// SPI handle.
-//static i2c_cmd_handle_t		handle_i2c;     // I2C handle.
-static i2c_dev_t			handle_i2c;			// I2C handle.
+static i2c_dev_t			handle_i2c = {};	// I2C handle.
 static u8g2_esp32_hal_t		u8g2_esp32_hal;		// HAL state data.
 
 #undef ESP_ERROR_CHECK
-#define ESP_ERROR_CHECK(x)   do { esp_err_t rc = (x); if (rc != ESP_OK) { ESP_LOGE("err", "esp_err_t = %d", rc); assert(0 && #x);} } while(0);
+#define ESP_ERROR_CHECK(x) \
+	do { \
+   		esp_err_t rc = (x); \
+		if (rc != ESP_OK) \
+		{ \
+			ESP_LOGE("err", "esp_err_t = %d", rc); \
+			assert(0 && #x); \
+		} \
+	} while(0)
 
 /*
  * Initialze the ESP32 HAL.
@@ -102,7 +110,7 @@ uint8_t u8g2_esp32_spi_byte_cb(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void 
  * to handle I2C communications.
  */
 uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8, uint8_t msg, uint8_t arg_int, void* arg_ptr) {
-	ESP_LOGD(TAG, "i2c_cb: Received a msg: %d, arg_int: %d, arg_ptr: %p", msg, arg_int, arg_ptr);
+	ESP_LOGI(TAG, "i2c_cb: Received a msg: %d, arg_int: %d, arg_ptr: %p", msg, arg_int, arg_ptr);
 
 	switch(msg) {
 		case U8X8_MSG_BYTE_SET_DC:
@@ -120,16 +128,13 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8, uint8_t msg, uint8_t arg_int, void*
 			}
 
 			handle_i2c.port = I2C_NUM_1;
+			handle_i2c.addr = SSD1306_ADDR;
 			handle_i2c.timeout_ticks = pdMS_TO_TICKS(CONFIG_I2CDEV_TIMEOUT);
 			handle_i2c.cfg.mode = I2C_MODE_MASTER;
 		    handle_i2c.cfg.sda_io_num = u8g2_esp32_hal.sda;
-		    handle_i2c.cfg.sda_pullup_en = GPIO_PULLUP_ENABLE;
 		    handle_i2c.cfg.scl_io_num = u8g2_esp32_hal.scl;
-		    handle_i2c.cfg.scl_pullup_en = GPIO_PULLUP_ENABLE;
-			handle_i2c.cfg.master.clk_speed = I2C_MASTER_FREQ_HZ;
-			handle_i2c.addr = SSD1306_ADDR;
-			//handle_i2c.mutex = ;
-
+			handle_i2c.cfg.master.clk_speed = I2C_FREQ_HZ;
+    		handle_i2c.cfg.clk_flags = I2C_SCLK_SRC_FLAG_FOR_NOMAL;
 			i2c_dev_create_mutex(&handle_i2c);
 
 		    //i2c_config_t conf;
@@ -167,7 +172,6 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8, uint8_t msg, uint8_t arg_int, void*
 
 		case U8X8_MSG_BYTE_START_TRANSFER:
 		{
-			ESP_LOGD(TAG, "Start I2C transfer to %02X.", handle_i2c.addr);
 			I2C_DEV_TAKE_MUTEX(&handle_i2c);
 			/*uint8_t i2c_address = u8x8_GetI2CAddress(u8x8);
 			handle_i2c = i2c_cmd_link_create();

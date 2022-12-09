@@ -36,6 +36,53 @@ u8g2_t u8g2 = {};
 i2c_dev_t rtc = {};
 smartpot_main_action main_action = NULL;
 
+/*
+#define CONFIG_EXAMPLE_I2C_MASTER_SDA       (GPIO_NUM_21)
+#define CONFIG_EXAMPLE_I2C_MASTER_SCL       (GPIO_NUM_22)
+#define CONFIG_EXAMPLE_I2C_CLOCK_HZ         400000
+
+void task(void *ignore)
+{
+    i2c_dev_t dev = { 0 };
+    dev.port = I2C_NUM_1;
+    dev.cfg.mode = I2C_MODE_MASTER;
+    dev.cfg.sda_io_num = CONFIG_EXAMPLE_I2C_MASTER_SDA;
+    dev.cfg.scl_io_num = CONFIG_EXAMPLE_I2C_MASTER_SCL;
+#if HELPER_TARGET_IS_ESP32
+    dev.cfg.master.clk_speed = CONFIG_EXAMPLE_I2C_CLOCK_HZ; // 400kHz
+#endif
+    while (1)
+    {
+        esp_err_t res;
+        printf("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n");
+        printf("00:         ");
+        for (uint8_t addr = 3; addr < 0x78; addr++)
+        {
+            if (addr % 16 == 0)
+                printf("\n%.2x:", addr);
+
+            dev.addr = addr;
+            res = i2c_dev_probe(&dev, I2C_DEV_WRITE);
+
+            if (res == 0)
+                printf(" %.2x", addr);
+            else
+                printf(" --");
+        }
+        printf("\n\n");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+extern "C" void app_main(void)
+{
+    // Init i2cdev library
+    ESP_ERROR_CHECK(i2c_dev_init());
+    // Start task
+    xTaskCreate(task, "i2c_scanner", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
+}
+*/
+
 extern "C" void app_main(void)
 {
     esp_sleep_wakeup_cause_t wakeup_cause = esp_sleep_get_wakeup_cause();
@@ -88,8 +135,11 @@ static void smartpot_display_init()
     u8g2_esp32_hal.scl = I2C_PORT1_SCL_PIN;
 
     u8g2_esp32_hal_init(u8g2_esp32_hal);    
-    /*u8x8_d_ssd1306_128x64_noname()*/
-	u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0, u8g2_esp32_i2c_byte_cb, u8g2_esp32_gpio_and_delay_cb);    
+    // u8x8_d_ssd1306_128x64_noname()
+    //u8g2_Setup_ssd1306_128x64_noname_f
+	//u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0, u8g2_esp32_i2c_byte_cb, u8g2_esp32_gpio_and_delay_cb);
+    //u8g2_Setup_ssd1306_i2c_128x64_noname_2(&u8g2, U8G2_R0, u8g2_esp32_i2c_byte_cb, u8g2_esp32_gpio_and_delay_cb);
+    u8g2_Setup_ssd1306_i2c_128x64_noname_1(&u8g2, U8G2_R0, u8g2_esp32_i2c_byte_cb, u8g2_esp32_gpio_and_delay_cb);
     u8x8_SetI2CAddress(&u8g2.u8x8, SSD1306_ADDR);
 	u8g2_InitDisplay(&u8g2);
 	u8g2_SetPowerSave(&u8g2, 0);
@@ -97,6 +147,9 @@ static void smartpot_display_init()
 
 static void smartpot_rtc_init()
 {
+    rtc.timeout_ticks = pdMS_TO_TICKS(CONFIG_I2CDEV_TIMEOUT);
+    rtc.cfg.mode = I2C_MODE_MASTER;
+    rtc.cfg.clk_flags = I2C_SCLK_SRC_FLAG_FOR_NOMAL;
     ESP_ERROR_CHECK(ds3231_init_desc(&rtc, I2C_NUM_1, I2C_PORT1_SDA_PIN, I2C_PORT1_SCL_PIN));
 }
 

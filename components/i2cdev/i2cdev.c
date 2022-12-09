@@ -262,7 +262,7 @@ esp_err_t i2c_dev_probe(const i2c_dev_t* dev, i2c_dev_type_t operation_type)
     {
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, dev->addr << 1 | (operation_type == I2C_DEV_READ ? 1 : 0), true);
+        i2c_master_write_byte(cmd, dev->addr << 1 | (operation_type == I2C_DEV_READ ? I2C_MASTER_READ : I2C_MASTER_WRITE), true);
         i2c_master_stop(cmd);
 
         res = i2c_master_cmd_begin(dev->port, cmd, pdMS_TO_TICKS(CONFIG_I2CDEV_TIMEOUT));
@@ -310,8 +310,6 @@ esp_err_t i2c_dev_read(const i2c_dev_t* dev, const uint8_t* out_data, const size
 
 esp_err_t i2c_dev_write(const i2c_dev_t* dev, const uint8_t* out_reg, size_t out_reg_size, const uint8_t* out_data, size_t out_size)
 {
-    ESP_LOGI(TAG, "Trying to write to device [0x%02x at %d]", dev->addr, dev->port);
-
     if (!dev || !out_data || !out_size)
     {
         return ESP_ERR_INVALID_ARG;
@@ -327,14 +325,15 @@ esp_err_t i2c_dev_write(const i2c_dev_t* dev, const uint8_t* out_reg, size_t out
         i2c_master_write_byte(cmd, (dev->addr << 1) | I2C_MASTER_WRITE, true);
         if (out_reg && out_reg_size)
         {
-			ESP_LOG_BUFFER_HEXDUMP(TAG, out_reg, out_reg_size, ESP_LOG_INFO);
             i2c_master_write(cmd, out_reg, out_reg_size, true);
         }
         i2c_master_write(cmd, out_data, out_size, true);
         i2c_master_stop(cmd);
         res = i2c_master_cmd_begin(dev->port, cmd, pdMS_TO_TICKS(CONFIG_I2CDEV_TIMEOUT));
         if (res != ESP_OK)
+        {
             ESP_LOGE(TAG, "Could not write to device [0x%02x at %d]: %d (%s)", dev->addr, dev->port, res, esp_err_to_name(res));
+        }
         i2c_cmd_link_delete(cmd);
     }
 
