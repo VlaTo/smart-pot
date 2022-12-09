@@ -71,7 +71,7 @@ static i2c_port_state_t states[I2C_NUM_MAX];
         } while (0)
 #endif
 
-esp_err_t i2cdev_init()
+esp_err_t i2c_dev_init()
 {
     memset(states, 0, sizeof(states));
 
@@ -90,7 +90,7 @@ esp_err_t i2cdev_init()
     return ESP_OK;
 }
 
-esp_err_t i2cdev_done()
+esp_err_t i2c_dev_done()
 {
     for (int i = 0; i < I2C_NUM_MAX; i++)
     {
@@ -111,7 +111,7 @@ esp_err_t i2cdev_done()
     return ESP_OK;
 }
 
-esp_err_t i2c_dev_create_mutex(i2c_dev_t *dev)
+esp_err_t i2c_dev_create_mutex(i2c_dev_t* dev)
 {
 #if !CONFIG_I2CDEV_NOLOCK
     if (!dev) return ESP_ERR_INVALID_ARG;
@@ -129,10 +129,13 @@ esp_err_t i2c_dev_create_mutex(i2c_dev_t *dev)
     return ESP_OK;
 }
 
-esp_err_t i2c_dev_delete_mutex(i2c_dev_t *dev)
+esp_err_t i2c_dev_delete_mutex(i2c_dev_t* dev)
 {
 #if !CONFIG_I2CDEV_NOLOCK
-    if (!dev) return ESP_ERR_INVALID_ARG;
+    if (!dev)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     ESP_LOGV(TAG, "[0x%02x at %d] deleting mutex", dev->addr, dev->port);
 
@@ -141,10 +144,13 @@ esp_err_t i2c_dev_delete_mutex(i2c_dev_t *dev)
     return ESP_OK;
 }
 
-esp_err_t i2c_dev_take_mutex(i2c_dev_t *dev)
+esp_err_t i2c_dev_take_mutex(i2c_dev_t* dev)
 {
 #if !CONFIG_I2CDEV_NOLOCK
-    if (!dev) return ESP_ERR_INVALID_ARG;
+    if (!dev)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     ESP_LOGV(TAG, "[0x%02x at %d] taking mutex", dev->addr, dev->port);
 
@@ -157,7 +163,7 @@ esp_err_t i2c_dev_take_mutex(i2c_dev_t *dev)
     return ESP_OK;
 }
 
-esp_err_t i2c_dev_give_mutex(i2c_dev_t *dev)
+esp_err_t i2c_dev_give_mutex(i2c_dev_t* dev)
 {
 #if !CONFIG_I2CDEV_NOLOCK
     if (!dev) return ESP_ERR_INVALID_ARG;
@@ -173,7 +179,7 @@ esp_err_t i2c_dev_give_mutex(i2c_dev_t *dev)
     return ESP_OK;
 }
 
-inline static bool cfg_equal(const i2c_config_t *a, const i2c_config_t *b)
+inline static bool cfg_equal(const i2c_config_t* a, const i2c_config_t* b)
 {
     return a->scl_io_num == b->scl_io_num
         && a->sda_io_num == b->sda_io_num
@@ -186,7 +192,7 @@ inline static bool cfg_equal(const i2c_config_t *a, const i2c_config_t *b)
         && a->sda_pullup_en == b->sda_pullup_en;
 }
 
-static esp_err_t i2c_setup_port(const i2c_dev_t *dev)
+static esp_err_t i2c_setup_port(const i2c_dev_t* dev)
 {
     if (dev->port >= I2C_NUM_MAX) return ESP_ERR_INVALID_ARG;
 
@@ -245,7 +251,7 @@ static esp_err_t i2c_setup_port(const i2c_dev_t *dev)
     return ESP_OK;
 }
 
-esp_err_t i2c_dev_probe(const i2c_dev_t *dev, i2c_dev_type_t operation_type)
+esp_err_t i2c_dev_probe(const i2c_dev_t* dev, i2c_dev_type_t operation_type)
 {
     if (!dev) return ESP_ERR_INVALID_ARG;
 
@@ -269,7 +275,7 @@ esp_err_t i2c_dev_probe(const i2c_dev_t *dev, i2c_dev_type_t operation_type)
     return res;
 }
 
-esp_err_t i2c_dev_read(const i2c_dev_t *dev, const void *out_data, size_t out_size, void *in_data, size_t in_size)
+esp_err_t i2c_dev_read(const i2c_dev_t* dev, const uint8_t* out_data, const size_t out_size, uint8_t* in_data, const size_t in_size)
 {
     if (!dev || !in_data || !in_size) return ESP_ERR_INVALID_ARG;
 
@@ -282,8 +288,8 @@ esp_err_t i2c_dev_read(const i2c_dev_t *dev, const void *out_data, size_t out_si
         if (out_data && out_size)
         {
             i2c_master_start(cmd);
-            i2c_master_write_byte(cmd, dev->addr << 1, true);
-            i2c_master_write(cmd, (void*)out_data, out_size, true);
+            i2c_master_write_byte(cmd, (dev->addr << 1) | I2C_MASTER_WRITE, true);
+            i2c_master_write(cmd, out_data, out_size, true);
         }
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (dev->addr << 1) | I2C_MASTER_READ, true);
@@ -298,12 +304,18 @@ esp_err_t i2c_dev_read(const i2c_dev_t *dev, const void *out_data, size_t out_si
     }
 
     SEMAPHORE_GIVE(dev->port);
+
     return res;
 }
 
-esp_err_t i2c_dev_write(const i2c_dev_t *dev, const void *out_reg, size_t out_reg_size, const void *out_data, size_t out_size)
+esp_err_t i2c_dev_write(const i2c_dev_t* dev, const uint8_t* out_reg, size_t out_reg_size, const uint8_t* out_data, size_t out_size)
 {
-    if (!dev || !out_data || !out_size) return ESP_ERR_INVALID_ARG;
+    ESP_LOGI(TAG, "Trying to write to device [0x%02x at %d]", dev->addr, dev->port);
+
+    if (!dev || !out_data || !out_size)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     SEMAPHORE_TAKE(dev->port);
 
@@ -312,12 +324,13 @@ esp_err_t i2c_dev_write(const i2c_dev_t *dev, const void *out_reg, size_t out_re
     {
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, dev->addr << 1, true);
+        i2c_master_write_byte(cmd, (dev->addr << 1) | I2C_MASTER_WRITE, true);
         if (out_reg && out_reg_size)
         {
-            i2c_master_write(cmd, (void*)out_reg, out_reg_size, true);
+			ESP_LOG_BUFFER_HEXDUMP(TAG, out_reg, out_reg_size, ESP_LOG_INFO);
+            i2c_master_write(cmd, out_reg, out_reg_size, true);
         }
-        i2c_master_write(cmd, (void *)out_data, out_size, true);
+        i2c_master_write(cmd, out_data, out_size, true);
         i2c_master_stop(cmd);
         res = i2c_master_cmd_begin(dev->port, cmd, pdMS_TO_TICKS(CONFIG_I2CDEV_TIMEOUT));
         if (res != ESP_OK)
@@ -326,15 +339,16 @@ esp_err_t i2c_dev_write(const i2c_dev_t *dev, const void *out_reg, size_t out_re
     }
 
     SEMAPHORE_GIVE(dev->port);
+
     return res;
 }
 
-esp_err_t i2c_dev_read_reg(const i2c_dev_t *dev, uint8_t reg, void *in_data, size_t in_size)
+esp_err_t i2c_dev_read_reg(const i2c_dev_t* dev, const uint8_t reg, uint8_t* in_data, const size_t in_size)
 {
     return i2c_dev_read(dev, &reg, 1, in_data, in_size);
 }
 
-esp_err_t i2c_dev_write_reg(const i2c_dev_t *dev, uint8_t reg, const void *out_data, size_t out_size)
+esp_err_t i2c_dev_write_reg(const i2c_dev_t* dev, const uint8_t reg, const uint8_t* out_data, const size_t out_size)
 {
     return i2c_dev_write(dev, &reg, 1, out_data, out_size);
 }

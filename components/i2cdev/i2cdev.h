@@ -92,7 +92,7 @@ typedef enum {
  *
  * @return ESP_OK on success
  */
-esp_err_t i2cdev_init();
+esp_err_t i2c_dev_init();
 
 /**
  * @brief Finish work with library
@@ -101,7 +101,7 @@ esp_err_t i2cdev_init();
  *
  * @return ESP_OK on success
  */
-esp_err_t i2cdev_done();
+esp_err_t i2c_dev_done();
 
 /**
  * @brief Create mutex for device descriptor
@@ -168,7 +168,7 @@ esp_err_t i2c_dev_probe(const i2c_dev_t* dev, i2c_dev_type_t operation_type);
  * @param in_size Number of byte to read
  * @return ESP_OK on success
  */
-esp_err_t i2c_dev_read(const i2c_dev_t* dev, const void* out_data, size_t out_size, void* in_data, size_t in_size);
+esp_err_t i2c_dev_read(const i2c_dev_t* dev, const uint8_t* out_data, const size_t out_size, uint8_t* in_data, const size_t in_size);
 
 /**
  * @brief Write to slave device
@@ -183,7 +183,7 @@ esp_err_t i2c_dev_read(const i2c_dev_t* dev, const void* out_data, size_t out_si
  * @param out_size Size of data to send
  * @return ESP_OK on success
  */
-esp_err_t i2c_dev_write(const i2c_dev_t* dev, const void* out_reg, size_t out_reg_size, const void* out_data, size_t out_size);
+esp_err_t i2c_dev_write(const i2c_dev_t* dev, const uint8_t* out_reg, const size_t out_reg_size, const uint8_t* out_data, const size_t out_size);
 
 /**
  * @brief Read from register with an 8-bit address
@@ -196,7 +196,7 @@ esp_err_t i2c_dev_write(const i2c_dev_t* dev, const void* out_reg, size_t out_re
  * @param in_size Number of byte to read
  * @return ESP_OK on success
  */
-esp_err_t i2c_dev_read_reg(const i2c_dev_t* dev, uint8_t reg, void* in_data, size_t in_size);
+esp_err_t i2c_dev_read_reg(const i2c_dev_t* dev, const uint8_t reg, uint8_t* in_data, const size_t in_size);
 
 /**
  * @brief Write to register with an 8-bit address
@@ -209,7 +209,7 @@ esp_err_t i2c_dev_read_reg(const i2c_dev_t* dev, uint8_t reg, void* in_data, siz
  * @param out_size Size of data to send
  * @return ESP_OK on success
  */
-esp_err_t i2c_dev_write_reg(const i2c_dev_t* dev, uint8_t reg, const void* out_data, size_t out_size);
+esp_err_t i2c_dev_write_reg(const i2c_dev_t* dev, const uint8_t reg, const uint8_t* out_data, const size_t out_size);
 
 #define I2C_DEV_TAKE_MUTEX(dev) do { \
         esp_err_t __ = i2c_dev_take_mutex(dev); \

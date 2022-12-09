@@ -151,13 +151,13 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8, uint8_t msg, uint8_t arg_int, void*
 
 		case U8X8_MSG_BYTE_SEND:
 		{
-			//uint8_t* data_ptr = (uint8_t*)arg_ptr;
-			ESP_LOG_BUFFER_HEXDUMP(TAG, arg_ptr, arg_int, ESP_LOG_VERBOSE);
+			ESP_LOG_BUFFER_HEXDUMP(TAG, arg_ptr, arg_int, ESP_LOG_INFO);
 			ESP_ERROR_CHECK(i2c_dev_write(&handle_i2c, NULL, 0, arg_ptr, arg_int));
 
-			/*while( arg_int > 0 ) {
-
-			   ESP_ERROR_CHECK(i2c_master_write_byte(handle_i2c, *data_ptr, ACK_CHECK_EN));
+			/*uint8_t* data_ptr = (uint8_t*)arg_ptr;
+			while( arg_int > 0 )
+			{
+			   ESP_ERROR_CHECK(i2c_dev_write(&handle_i2c, NULL, 0, *data_ptr, 1));
 			   data_ptr++;
 			   arg_int--;
 			}*/
@@ -167,6 +167,7 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8, uint8_t msg, uint8_t arg_int, void*
 
 		case U8X8_MSG_BYTE_START_TRANSFER:
 		{
+			ESP_LOGD(TAG, "Start I2C transfer to %02X.", handle_i2c.addr);
 			I2C_DEV_TAKE_MUTEX(&handle_i2c);
 			/*uint8_t i2c_address = u8x8_GetI2CAddress(u8x8);
 			handle_i2c = i2c_cmd_link_create();

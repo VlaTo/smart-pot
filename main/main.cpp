@@ -68,7 +68,7 @@ extern "C" void app_main(void)
 
     // initialization
     smartpot_i2c_init();
-    //smartpot_display_init();
+    smartpot_display_init();
     smartpot_rtc_init();
 
     // run
@@ -77,7 +77,7 @@ extern "C" void app_main(void)
 
 static void smartpot_i2c_init()
 {
-    i2cdev_init();
+    i2c_dev_init();
 }
 
 static void smartpot_display_init()
