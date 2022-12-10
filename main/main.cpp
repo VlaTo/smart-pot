@@ -10,31 +10,32 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_event.h"
-#include "i2cdev.h"
+#undef U8X8_USE_PINS
 #include "u8g2.h"
 #include "u8x8.h"
 #include "u8g2_esp32_hal.h"
-#include "ds3231.h"
+#include "ds3231.hpp"
+#include "at24cxx.hpp"
 #include "main.hpp"
 
 #define I2C_PORT1_SDA_PIN                   (GPIO_NUM_21)
 #define I2C_PORT1_SCL_PIN                   (GPIO_NUM_22)
 
-typedef void (*smartpot_main_action)();
-
 static const char* TAG = "smart-pot";
 
 // forward functions declaration
-static void smartpot_i2c_init();
+/*static void smartpot_i2c_init();
 static void smartpot_display_init();
 static void smartpot_rtc_init();
 static void smartpot_nop();
 static void smartpot_try_to_water();
 static void smartpot_enter_menu();
-
+*/
 u8g2_t u8g2 = {};
-i2c_dev_t rtc = {};
-smartpot_main_action main_action = NULL;
+Ds3231 rtc(I2C_MASTER_NUM, DS3231_ADDR);
+At24cxx eeprom(I2C_MASTER_NUM, AT24CXX_ADDR, CHIP_8x4096);
+
+smartpot_action_cb main_action = NULL;
 
 /*
 #define CONFIG_EXAMPLE_I2C_MASTER_SDA       (GPIO_NUM_21)
@@ -82,7 +83,64 @@ extern "C" void app_main(void)
     xTaskCreate(task, "i2c_scanner", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
 }
 */
+extern "C" void app_main(void)
+{
+    u8g2_esp32_hal_t u8g2_esp32_hal = U8G2_ESP32_HAL_DEFAULT;
 
+    u8g2_esp32_hal.sda = I2C_PORT1_SDA_PIN;
+    u8g2_esp32_hal.scl = I2C_PORT1_SCL_PIN;
+
+    u8g2_esp32_hal_init(u8g2_esp32_hal);    
+    
+    u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0, u8g2_esp32_i2c_byte_cb, u8g2_esp32_gpio_and_delay_cb);
+    u8x8_SetI2CAddress(&u8g2.u8x8, 0x3C);
+    
+    ESP_LOGI(TAG, "u8g2_InitDisplay");
+	u8g2_InitDisplay(&u8g2); // send init sequence to the display, display is in sleep mode after this,
+
+    uint8_t mem[16];
+    eeprom.read(0, mem, sizeof(mem));
+
+    ESP_LOGI(TAG, "u8g2_SetPowerSave");
+	u8g2_SetPowerSave(&u8g2, 0); // wake up display
+	ESP_LOGI(TAG, "u8g2_ClearBuffer");
+	u8g2_ClearBuffer(&u8g2);
+
+	ESP_LOGI(TAG, "u8g2_SetFont");
+    u8g2_SetFont(&u8g2, u8g2_font_7x13_t_cyrillic);
+	ESP_LOGI(TAG, "u8g2_DrawStr");
+    u8g2_DrawStr(&u8g2, 2, 17, "\u0411...");
+
+    struct tm time;
+    uint16_t _value = 0;
+    char str[64];
+    while(1)
+    {
+        rtc.get_time(&time);
+        strftime(str, sizeof(str), "%c", &time);
+        ESP_LOGI(TAG, "DS3231 date/time %s", str);
+
+        u8g2.draw_color = 1;
+        ESP_LOGI(TAG, "u8g2_DrawBox");
+        u8g2_DrawFrame(&u8g2, 0, 26, 102, 10);
+        u8g2.draw_color = 0;
+        u8g2_DrawBox(&u8g2, 1, 27, 100, 8);
+        uint16_t temp = (_value * 100) / 100;
+        u8g2.draw_color = 1;
+        u8g2_DrawBox(&u8g2, 1, 27, temp, 8);
+
+        ESP_LOGI(TAG, "u8g2_SendBuffer");
+        u8g2_SendBuffer(&u8g2);
+
+        _value = (_value + 5) % 105;
+
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+    
+    ESP_LOGI(TAG, "All done!");
+}
+
+/*
 extern "C" void app_main(void)
 {
     esp_sleep_wakeup_cause_t wakeup_cause = esp_sleep_get_wakeup_cause();
@@ -179,3 +237,4 @@ static void smartpot_enter_menu()
 {
     ESP_LOGI(TAG, "Wake up by undefined cause");
 }
+*/

@@ -1,9 +1,9 @@
 if(${IDF_TARGET} STREQUAL esp32)
-    set(REQ "i2cdev" "log" "esp_idf_lib_helpers")
+    set(REQ "log" "driver" "esp_idf_lib_helpers" "i2cdev")
 endif()
 set(
     SOURCES
-        "ds3231.c"
+       "ds3231.cpp"
 )
 idf_component_register(
     SRCS ${SOURCES}

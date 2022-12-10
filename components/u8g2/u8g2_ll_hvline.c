@@ -87,8 +87,10 @@ void u8g2_ll_hvline_vertical_top_lsb(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y,
   /* bytes are vertical, lsb on top (y=0), msb at bottom (y=7) */
   bit_pos = y;		/* overflow truncate is ok here... */
   bit_pos &= 7; 	/* ... because only the lowest 3 bits are needed */
-  mask = 1;
-  mask <<= bit_pos;
+  //mask = 1;
+  //mask <<= bit_pos;
+
+  mask = 1u << bit_pos;
 
   or_mask = 0;
   xor_mask = 0;
@@ -110,12 +112,12 @@ void u8g2_ll_hvline_vertical_top_lsb(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y,
       do
       {
 #ifdef __unix
-	assert(ptr < max_ptr);
+	      assert(ptr < max_ptr);
 #endif
-	*ptr |= or_mask;
-	*ptr ^= xor_mask;
-	ptr++;
-	len--;
+        *ptr |= or_mask;
+        *ptr ^= xor_mask;
+        ptr++;
+        len--;
       } while( len != 0 );
   }
   else
@@ -135,17 +137,17 @@ void u8g2_ll_hvline_vertical_top_lsb(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y,
 
       if ( bit_pos == 0 )
       {
-	ptr+=u8g2->pixel_buf_width;	/* 6 Jan 17: Changed u8g2->width to u8g2->pixel_buf_width, issue #148 */
+	      ptr+=u8g2->pixel_buf_width;	/* 6 Jan 17: Changed u8g2->width to u8g2->pixel_buf_width, issue #148 */
 		
-	if ( u8g2->draw_color <= 1 )
-	  or_mask  = 1;
-	if ( u8g2->draw_color != 1 )
-	  xor_mask = 1;
+        if ( u8g2->draw_color <= 1 )
+          or_mask  = 1;
+        if ( u8g2->draw_color != 1 )
+          xor_mask = 1;
       }
       else
       {
-	or_mask <<= 1;
-	xor_mask <<= 1;
+        or_mask <<= 1;
+        xor_mask <<= 1;
       }
     } while( len != 0 );
   }
