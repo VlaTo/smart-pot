@@ -1,0 +1,243 @@
+/**
+ * 
+ * 
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <driver/gpio.h>
+#include <ets_sys.h>
+#include <esp_idf_lib_helpers.h>
+#include "esp_err.h"
+#include "esp_log.h"
+#include "dht.hpp"
+
+// DHT timer precision in microseconds
+#define DHT_TIMER_INTERVAL 2
+#define DHT_DATA_BITS 40
+#define DHT_DATA_BYTES (DHT_DATA_BITS / 8)
+
+#if HELPER_TARGET_IS_ESP32
+static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+#define PORT_ENTER_CRITICAL() portENTER_CRITICAL(&mux)
+#define PORT_EXIT_CRITICAL() portEXIT_CRITICAL(&mux)
+
+#elif HELPER_TARGET_IS_ESP8266
+#define PORT_ENTER_CRITICAL() portENTER_CRITICAL()
+#define PORT_EXIT_CRITICAL() portEXIT_CRITICAL()
+#endif
+
+/*
+ *  Note:
+ *  A suitable pull-up resistor should be connected to the selected GPIO line
+ *
+ *  __           ______          _______                              ___________________________
+ *    \    A    /      \   C    /       \   DHT duration_data_low    /                           \
+ *     \_______/   B    \______/    D    \__________________________/   DHT duration_data_high    \__
+ *
+ *
+ *  Initializing communications with the DHT requires four 'phases' as follows:
+ *
+ *  Phase A - MCU pulls signal low for at least 18000 us
+ *  Phase B - MCU allows signal to float back up and waits 20-40us for DHT to pull it low
+ *  Phase C - DHT pulls signal low for ~80us
+ *  Phase D - DHT lets signal float back up for ~80us
+ *
+ *  After this, the DHT transmits its first bit by holding the signal low for 50us
+ *  and then letting it float back high for a period of time that depends on the data bit.
+ *  duration_data_high is shorter than 50us for a logic '0' and longer than 50us for logic '1'.
+ *
+ *  There are a total of 40 data bits transmitted sequentially. These bits are read into a byte array
+ *  of length 5.  The first and third bytes are humidity (%) and temperature (C), respectively.  Bytes 2 and 4
+ *  are zero-filled and the fifth is a checksum such that:
+ *
+ *  byte_5 == (byte_1 + byte_2 + byte_3 + byte_4) & 0xFF
+ *
+ */
+static const char *TAG = "dht";
+
+#define CHECK_ARG(ARG) \
+    do { \
+        if (!(ARG)) \
+            return ESP_ERR_INVALID_ARG; \
+    } while (0)
+
+Dht::Dht(gpio_num_t pin, dht_sensor_type_t sensor_type)
+    : pin(pin), sensor_type(sensor_type)
+{
+}
+
+esp_err_t Dht::read_data(int16_t* humidity, int16_t* temperature)
+{
+    CHECK_ARG(humidity || temperature);
+
+    uint8_t data[DHT_DATA_BYTES] = { 0 };
+
+    gpio_set_direction(pin, GPIO_MODE_OUTPUT_OD);
+    gpio_set_level(pin, 1);
+
+    PORT_ENTER_CRITICAL();
+    esp_err_t result = fetch_data(data);
+
+    if (ESP_OK == result)
+    {
+        PORT_EXIT_CRITICAL();
+    }
+
+    /* restore GPIO direction because, after calling dht_fetch_data(), the
+     * GPIO direction mode changes */
+    gpio_set_direction(pin, GPIO_MODE_OUTPUT_OD);
+    gpio_set_level(pin, 1);
+
+    if (ESP_OK != result)
+    {
+        return result;
+    }
+
+    if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF))
+    {
+        ESP_LOGE(TAG, "Checksum failed, invalid data received from sensor");
+        return ESP_ERR_INVALID_CRC;
+    }
+
+    if (humidity)
+    {
+        *humidity = convert_data(data[0], data[1]);
+    }
+    if (temperature)
+    {
+        *temperature = convert_data(data[2], data[3]);
+    }
+
+    ESP_LOGD(TAG, "Sensor data: humidity=%d, temp=%d", *humidity, *temperature);
+
+    return ESP_OK;
+}
+
+esp_err_t Dht::read_float_data(float* humidity, float* temperature)
+{
+    CHECK_ARG(humidity || temperature);
+
+    int16_t h, t;
+
+    esp_err_t res = read_data(humidity ? &h : NULL, temperature ? &t : NULL);
+
+    if (ESP_OK != res)
+    {
+        return res;
+    }
+
+    if (humidity)
+    {
+        *humidity = h / 10.0;
+    }
+
+    if (temperature)
+    {
+        *temperature = t / 10.0;
+    }
+
+    return ESP_OK;
+}
+
+/**
+ * Wait specified time for pin to go to a specified state.
+ * If timeout is reached and pin doesn't go to a requested state
+ * false is returned.
+ * The elapsed time is returned in pointer 'duration' if it is not NULL.
+ */
+esp_err_t Dht::await_pin_state(uint32_t timeout, int expected_pin_state, uint32_t* duration)
+{
+    /* XXX dht_await_pin_state() should save pin direction and restore
+     * the direction before return. however, the SDK does not provide
+     * gpio_get_direction().
+     */
+    gpio_set_direction(pin, GPIO_MODE_INPUT);
+
+    for (uint32_t i = 0; i < timeout; i += DHT_TIMER_INTERVAL)
+    {
+        // need to wait at least a single interval to prevent reading a jitter
+        ets_delay_us(DHT_TIMER_INTERVAL);
+
+        if (expected_pin_state == gpio_get_level(pin))
+        {
+            if (duration)
+            {
+                *duration = i;
+            }
+
+            return ESP_OK;
+        }
+    }
+
+    return ESP_ERR_TIMEOUT;
+}
+
+/**
+ * Request data from DHT and read raw bit stream.
+ * The function call should be protected from task switching.
+ * Return false if error occurred.
+ */
+esp_err_t Dht::fetch_data(uint8_t* data)
+{
+    uint32_t low_duration;
+    uint32_t high_duration;
+
+    // Phase 'A' pulling signal low to initiate read sequence
+    gpio_set_direction(pin, GPIO_MODE_OUTPUT_OD);
+    gpio_set_level(pin, 0);
+
+    ets_delay_us(DHT_TYPE_SI7021 == sensor_type ? 500 : 20000);
+    gpio_set_level(pin, 1);
+
+    // Step through Phase 'B', 40us
+    ESP_ERROR_CHECK(await_pin_state(40, 0, NULL));
+    // Step through Phase 'C', 88us
+    ESP_ERROR_CHECK(await_pin_state(88, 1, NULL));
+    // Step through Phase 'D', 88us
+    ESP_ERROR_CHECK(await_pin_state(88, 0, NULL));
+
+    // Read in each of the 40 bits of data...
+    for (int index = 0; index < DHT_DATA_BITS; index++)
+    {
+        ESP_ERROR_CHECK(await_pin_state(65, 1, &low_duration));
+        ESP_ERROR_CHECK(await_pin_state(75, 0, &high_duration));
+
+        uint8_t b = index / 8;
+        uint8_t m = index % 8;
+
+        if (!m)
+        {
+            data[b] = 0;
+        }
+
+        data[b] |= (high_duration > low_duration) << (7 - m);
+    }
+
+    return ESP_OK;
+}
+
+/**
+ * Pack two data bytes into single value and take into account sign bit.
+ */
+int16_t Dht::convert_data(uint8_t msb, uint8_t lsb)
+{
+    int16_t data;
+
+    if (DHT_TYPE_DHT11 == sensor_type)
+    {
+        data = msb * 10;
+    }
+    else
+    {
+        data = msb & 0x7F;
+        data <<= 8;
+        data |= lsb;
+
+        if (msb & BIT(7))
+        {
+            data = -data;       // convert it to negative
+        }
+    }
+
+    return data;
+}

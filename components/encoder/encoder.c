@@ -214,7 +214,9 @@ esp_err_t rotary_encoder_add(rotary_encoder_t *re)
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.pin_bit_mask = GPIO_BIT(re->pin_a) | GPIO_BIT(re->pin_b);
     if (re->pin_btn < GPIO_NUM_MAX)
+    {
         io_conf.pin_bit_mask |= GPIO_BIT(re->pin_btn);
+    }
     CHECK(gpio_config(&io_conf));
 
     re->btn_state = RE_BTN_RELEASED;

@@ -12,6 +12,7 @@ set(
         "u8g2_hvline.c"
         "u8g2_intersection.c"
         "u8g2_ll_hvline.c"
+        "u8g2_selection_list.c"
         "u8x8_d_ssd1306_128x64_noname.c"
         "u8x8_display.c"
         "u8x8_gpio.c"

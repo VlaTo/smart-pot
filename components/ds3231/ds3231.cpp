@@ -284,111 +284,61 @@ esp_err_t Ds3231::set_flag(const uint8_t reg, const uint8_t bits, const uint8_t 
     return write_reg(reg, &data, sizeof(data));
 }
 
-/*
-
-
-
-
-
-esp_err_t ds3231_get_oscillator_stop_flag(i2c_dev_t *dev, bool *flag)
+esp_err_t Ds3231::get_oscillator_stop_flag(bool* flag)
 {
-    CHECK_ARG(dev && flag);
+    CHECK_ARG(flag);
 
-    uint8_t f;
+    uint8_t data;
 
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_get_flag(dev, DS3231_ADDR_STATUS, DS3231_STAT_OSCILLATOR, &f));
-    I2C_DEV_GIVE_MUTEX(dev);
+    ESP_ERROR_CHECK(get_flag(DS3231_ADDR_STATUS, DS3231_STAT_OSCILLATOR, &data));
 
-    *flag = (f ? true : false);
+    *flag = data ? true : false;
 
     return ESP_OK;
 }
 
-esp_err_t ds3231_clear_oscillator_stop_flag(i2c_dev_t *dev)
+esp_err_t Ds3231::clear_oscillator_stop_flag()
 {
-    CHECK_ARG(dev);
-
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_STATUS, DS3231_STAT_OSCILLATOR, DS3231_CLEAR));
-    I2C_DEV_GIVE_MUTEX(dev);
-
-    return ESP_OK;
+    return set_flag(DS3231_ADDR_STATUS, DS3231_STAT_OSCILLATOR, DS3231_CLEAR);
 }
 
-
-
-
-esp_err_t ds3231_enable_32khz(i2c_dev_t *dev)
+esp_err_t Ds3231::enable_32khz()
 {
-    CHECK_ARG(dev);
-
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_STATUS, DS3231_STAT_32KHZ, DS3231_SET));
-    I2C_DEV_GIVE_MUTEX(dev);
-
-    return ESP_OK;
+    return set_flag(DS3231_ADDR_STATUS, DS3231_STAT_32KHZ, DS3231_SET);
 }
 
-esp_err_t ds3231_disable_32khz(i2c_dev_t *dev)
+esp_err_t Ds3231::disable_32khz()
 {
-    CHECK_ARG(dev);
-
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_STATUS, DS3231_STAT_32KHZ, DS3231_CLEAR));
-    I2C_DEV_GIVE_MUTEX(dev);
-
-    return ESP_OK;
+    return set_flag(DS3231_ADDR_STATUS, DS3231_STAT_32KHZ, DS3231_CLEAR);
 }
 
-esp_err_t ds3231_enable_squarewave(i2c_dev_t *dev)
+esp_err_t Ds3231::enable_squarewave()
 {
-    CHECK_ARG(dev);
-
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_CONTROL, DS3231_CTRL_ALARM_INTS, DS3231_CLEAR));
-    I2C_DEV_GIVE_MUTEX(dev);
-
-    return ESP_OK;
+    return set_flag(DS3231_ADDR_CONTROL, DS3231_CTRL_ALARM_INTS, DS3231_CLEAR);
 }
 
-esp_err_t ds3231_disable_squarewave(i2c_dev_t *dev)
+esp_err_t Ds3231::disable_squarewave()
 {
-    CHECK_ARG(dev);
-
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_CONTROL, DS3231_CTRL_ALARM_INTS, DS3231_SET));
-    I2C_DEV_GIVE_MUTEX(dev);
-
-    return ESP_OK;
+    return set_flag(DS3231_ADDR_CONTROL, DS3231_CTRL_ALARM_INTS, DS3231_SET);
 }
 
-esp_err_t ds3231_set_squarewave_freq(i2c_dev_t *dev, ds3231_sqwave_freq_t freq)
+esp_err_t Ds3231::set_squarewave_freq(ds3231_sqwave_freq_t freq)
 {
-    CHECK_ARG(dev);
-
     uint8_t flag = 0;
 
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_get_flag(dev, DS3231_ADDR_CONTROL, 0xff, &flag));
+    ESP_ERROR_CHECK(get_flag(DS3231_ADDR_CONTROL, 0xFF, &flag));
     flag &= ~DS3231_SQWAVE_8192HZ;
     flag |= freq;
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_CONTROL, flag, DS3231_REPLACE));
-    I2C_DEV_GIVE_MUTEX(dev);
+    ESP_ERROR_CHECK(set_flag(DS3231_ADDR_CONTROL, flag, DS3231_REPLACE));
 
     return ESP_OK;
 }
 
-
-esp_err_t ds3231_get_squarewave_freq(i2c_dev_t *dev, ds3231_sqwave_freq_t* freq)
+esp_err_t Ds3231::get_squarewave_freq(ds3231_sqwave_freq_t* freq)
 {
-    CHECK_ARG(dev);
-
     uint8_t flag = 0;
 
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, ds3231_get_flag(dev, DS3231_ADDR_CONTROL, 0xff, &flag));
-    I2C_DEV_GIVE_MUTEX(dev);
+    ESP_ERROR_CHECK(get_flag(DS3231_ADDR_CONTROL, 0xFF, &flag));
 
     flag &= DS3231_SQWAVE_8192HZ;
     *freq = (ds3231_sqwave_freq_t) flag;
@@ -396,83 +346,73 @@ esp_err_t ds3231_get_squarewave_freq(i2c_dev_t *dev, ds3231_sqwave_freq_t* freq)
     return ESP_OK;
 }
 
-
-esp_err_t ds3231_get_raw_temp(i2c_dev_t *dev, int16_t *temp)
+esp_err_t Ds3231::get_raw_temp(int16_t* temperature)
 {
-    CHECK_ARG(dev && temp);
+    CHECK_ARG(temperature);
 
     uint8_t data[2];
 
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, i2c_dev_read_reg(dev, DS3231_ADDR_TEMP, data, sizeof(data)));
-    I2C_DEV_GIVE_MUTEX(dev);
+    ESP_ERROR_CHECK(read_reg(DS3231_ADDR_TEMP, data, sizeof(data)));
 
-    *temp = (int16_t)(int8_t)data[0] << 2 | data[1] >> 6;
+    *temperature = (int16_t)(int8_t)data[0] << 2 | data[1] >> 6;
 
     return ESP_OK;
 }
 
-esp_err_t ds3231_get_temp_integer(i2c_dev_t *dev, int8_t *temp)
+esp_err_t Ds3231::get_temp_integer(int8_t* temperature)
 {
-    CHECK_ARG(temp);
+    CHECK_ARG(temperature);
 
     int16_t t_int;
 
-    esp_err_t res = ds3231_get_raw_temp(dev, &t_int);
-    if (res == ESP_OK)
-        *temp = t_int >> 2;
+    esp_err_t result = get_raw_temp(&t_int);
+    if (ESP_OK == result)
+    {
+        *temperature = t_int >> 2;
+    }
 
-    return res;
+    return result;
 }
 
-esp_err_t ds3231_get_temp_float(i2c_dev_t *dev, float *temp)
+esp_err_t Ds3231::get_temp_float(float* temperature)
 {
-    CHECK_ARG(temp);
+    CHECK_ARG(temperature);
 
     int16_t t_int;
 
-    esp_err_t res = ds3231_get_raw_temp(dev, &t_int);
-    if (res == ESP_OK)
-        *temp = t_int * 0.25;
+    esp_err_t result = get_raw_temp(&t_int);
+    if (ESP_OK == result)
+    {
+        *temperature = t_int * 0.25;
+    }
 
-    return res;
+    return result;
 }
 
-
-esp_err_t ds3231_set_aging_offset(i2c_dev_t *dev, int8_t age)
+esp_err_t Ds3231::set_aging_offset(int8_t age)
 {
-    CHECK_ARG(dev);
-
     uint8_t age_u8 = (uint8_t) age;
 
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, i2c_dev_write_reg(dev, DS3231_ADDR_AGING, &age_u8, sizeof(uint8_t)));
-
-    **
+    ESP_ERROR_CHECK(write_reg(DS3231_ADDR_AGING, &age_u8, sizeof(age_u8)));
+    /**
      * To see the effects of the aging register on the 32kHz output
      * frequency immediately, a manual conversion should be started
      * after each aging register change.
-     *
-    I2C_DEV_CHECK(dev, ds3231_set_flag(dev, DS3231_ADDR_CONTROL, DS3231_CTRL_TEMPCONV, DS3231_SET));
-
-    I2C_DEV_GIVE_MUTEX(dev);
+     */
+    ESP_ERROR_CHECK(set_flag(DS3231_ADDR_CONTROL, DS3231_CTRL_TEMPCONV, DS3231_SET));
 
     return ESP_OK;
 }
 
-
-esp_err_t ds3231_get_aging_offset(i2c_dev_t *dev, int8_t *age)
+esp_err_t Ds3231::get_aging_offset(int8_t* age)
 {
-    CHECK_ARG(dev && age);
+    CHECK_ARG(age);
 
     uint8_t age_u8;
 
-    I2C_DEV_TAKE_MUTEX(dev);
-    I2C_DEV_CHECK(dev, i2c_dev_read_reg(dev, DS3231_ADDR_AGING, &age_u8, sizeof(uint8_t)));
-    I2C_DEV_GIVE_MUTEX(dev);
+    ESP_ERROR_CHECK(read_reg(DS3231_ADDR_AGING, &age_u8, sizeof(age_u8)));
 
     *age = (int8_t) age_u8;
 
     return ESP_OK;
 }
-*/

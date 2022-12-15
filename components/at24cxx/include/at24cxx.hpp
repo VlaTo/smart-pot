@@ -25,7 +25,8 @@ class At24cxx final : public I2cDev
 public:
     At24cxx(const i2c_port_t dev_port, const i2c_addr_t dev_addr, at24_mem_size_t mem_size);
 
-    esp_err_t read(uint16_t offset, uint8_t* out_data, size_t out_size);
+    esp_err_t read(const uint16_t offset, uint8_t* out_data, const size_t out_size);
+    esp_err_t write(const uint16_t offset, const uint8_t* in_data, const size_t in_size);
 
 private:
     at24_mem_size_t size;
