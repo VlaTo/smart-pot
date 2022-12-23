@@ -142,11 +142,12 @@ static void timer_handler(void *arg)
         return;
     }
 
-    for (size_t i = 0; i < CONFIG_RE_MAX; i++)
+    for (size_t index = 0; CONFIG_RE_MAX > index; index++)
     {
-        if (encs[i])
+        rotary_encoder_t* current_encoder = encs[index];
+        if (current_encoder)
         {
-            read_encoder(encs[i]);
+            read_encoder(current_encoder);
         }
     }
 

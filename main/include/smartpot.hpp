@@ -14,43 +14,9 @@
 #include "ds3231.hpp"
 #include "dht.hpp"
 
-class SmartPot;
-
-typedef void (SmartPot::* menu_item_cb)(int);
-
-class MenuItem final
-{
-public:
-    MenuItem(const char* title, int tag, menu_item_cb cb);
-    MenuItem(const char* title, MenuItem* sub_menu);
-    ~MenuItem();
-
-private:
-
-    bool has_sub_menu;
-    const char* title;
-    int tag;
-    union
-    {
-        menu_item_cb cb;
-        MenuItem* sub_menu;
-    };
-};
-
 /**
  * 
  */
-class Menu final
-{
-public:
-    Menu(MenuItem* menu_item);
-    ~Menu();
-
-private:
-    MenuItem* menu_item;
-    MenuItem* top_item;
-};
-
 class SmartPot final
 {
 public:

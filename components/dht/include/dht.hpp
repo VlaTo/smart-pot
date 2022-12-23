@@ -52,6 +52,7 @@ private:
     inline esp_err_t fetch_data(uint8_t* data);
     inline int16_t convert_data(uint8_t msb, uint8_t lsb);
 
-    gpio_num_t pin;
-    dht_sensor_type_t sensor_type;
+    gpio_num_t _pin;
+    dht_sensor_type_t _sensor_type;
+    TickType_t _ticks;
 };

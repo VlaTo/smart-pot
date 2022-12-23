@@ -61,8 +61,17 @@ static const char *TAG = "dht";
             return ESP_ERR_INVALID_ARG; \
     } while (0)
 
+#define CHECK_LOGE(x, msg, ...) do { \
+        esp_err_t __; \
+        if ((__ = x) != ESP_OK) { \
+            PORT_EXIT_CRITICAL(); \
+            ESP_LOGE(TAG, msg, ## __VA_ARGS__); \
+            return __; \
+        } \
+    } while (0)
+
 Dht::Dht(gpio_num_t pin, dht_sensor_type_t sensor_type)
-    : pin(pin), sensor_type(sensor_type)
+    : _pin(pin), _sensor_type(sensor_type), _ticks(0lu)
 {
 }
 
@@ -72,8 +81,8 @@ esp_err_t Dht::read_data(int16_t* humidity, int16_t* temperature)
 
     uint8_t data[DHT_DATA_BYTES] = { 0 };
 
-    gpio_set_direction(pin, GPIO_MODE_OUTPUT_OD);
-    gpio_set_level(pin, 1);
+    gpio_set_direction(_pin, GPIO_MODE_OUTPUT_OD);
+    gpio_set_level(_pin, 1);
 
     PORT_ENTER_CRITICAL();
     esp_err_t result = fetch_data(data);
@@ -85,8 +94,8 @@ esp_err_t Dht::read_data(int16_t* humidity, int16_t* temperature)
 
     /* restore GPIO direction because, after calling dht_fetch_data(), the
      * GPIO direction mode changes */
-    gpio_set_direction(pin, GPIO_MODE_OUTPUT_OD);
-    gpio_set_level(pin, 1);
+    gpio_set_direction(_pin, GPIO_MODE_OUTPUT_OD);
+    gpio_set_level(_pin, 1);
 
     if (ESP_OK != result)
     {
@@ -151,14 +160,14 @@ esp_err_t Dht::await_pin_state(uint32_t timeout, int expected_pin_state, uint32_
      * the direction before return. however, the SDK does not provide
      * gpio_get_direction().
      */
-    gpio_set_direction(pin, GPIO_MODE_INPUT);
+    gpio_set_direction(_pin, GPIO_MODE_INPUT);
 
     for (uint32_t i = 0; i < timeout; i += DHT_TIMER_INTERVAL)
     {
         // need to wait at least a single interval to prevent reading a jitter
         ets_delay_us(DHT_TIMER_INTERVAL);
 
-        if (expected_pin_state == gpio_get_level(pin))
+        if (expected_pin_state == gpio_get_level(_pin))
         {
             if (duration)
             {
@@ -183,24 +192,24 @@ esp_err_t Dht::fetch_data(uint8_t* data)
     uint32_t high_duration;
 
     // Phase 'A' pulling signal low to initiate read sequence
-    gpio_set_direction(pin, GPIO_MODE_OUTPUT_OD);
-    gpio_set_level(pin, 0);
+    gpio_set_direction(_pin, GPIO_MODE_OUTPUT_OD);
+    gpio_set_level(_pin, 0);
 
-    ets_delay_us(DHT_TYPE_SI7021 == sensor_type ? 500 : 20000);
-    gpio_set_level(pin, 1);
+    ets_delay_us(DHT_TYPE_SI7021 == _sensor_type ? 500 : 20000);
+    gpio_set_level(_pin, 1);
 
     // Step through Phase 'B', 40us
-    ESP_ERROR_CHECK(await_pin_state(40, 0, NULL));
+    CHECK_LOGE(await_pin_state(40, 0, NULL), "Initialization error, problem in phase 'B'");
     // Step through Phase 'C', 88us
-    ESP_ERROR_CHECK(await_pin_state(88, 1, NULL));
+    CHECK_LOGE(await_pin_state(88, 1, NULL), "Initialization error, problem in phase 'C'");
     // Step through Phase 'D', 88us
-    ESP_ERROR_CHECK(await_pin_state(88, 0, NULL));
+    CHECK_LOGE(await_pin_state(88, 0, NULL), "Initialization error, problem in phase 'D'");
 
     // Read in each of the 40 bits of data...
     for (int index = 0; index < DHT_DATA_BITS; index++)
     {
-        ESP_ERROR_CHECK(await_pin_state(65, 1, &low_duration));
-        ESP_ERROR_CHECK(await_pin_state(75, 0, &high_duration));
+        CHECK_LOGE(await_pin_state(65, 1, &low_duration), "LOW bit timeout");
+        CHECK_LOGE(await_pin_state(75, 0, &high_duration), "HIGH bit timeout");
 
         uint8_t b = index / 8;
         uint8_t m = index % 8;
@@ -223,9 +232,11 @@ int16_t Dht::convert_data(uint8_t msb, uint8_t lsb)
 {
     int16_t data;
 
-    if (DHT_TYPE_DHT11 == sensor_type)
+    if (DHT_TYPE_DHT11 == _sensor_type)
     {
-        data = msb * 10;
+        //data = msb * 10;
+        data = msb * 10 + lsb;
+        //data = lsb * 10 + msb;
     }
     else
     {
